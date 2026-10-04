@@ -298,7 +298,7 @@ function insideShellBlocked(x,y){
 // ---------- simulation ----------
 function step(dt){
   if(state==='start')return;
-  if(state==='count'){cdT-=dt;if(cdT<=0.6)state='play';return;}
+  if(state==='count'){cdT-=dt;if(cdT<=0.6){state='play';clearInput();}return;} // frozen until GO; nothing held before GO counts after it
   if(cdT>0)cdT-=dt;
   time+=dt;
   const P=tanks[0];
@@ -422,9 +422,9 @@ function step(dt){
   // result
   if(state==='play'){
     const alive=tanks.filter(t=>t.alive).length;
-    if(!P.alive){state='over';playerWon=false;overAt=time+0.9;sfx.lose();}
+    if(!P.alive){state='over';clearInput();playerWon=false;overAt=time+0.9;sfx.lose();}
     else if(alive===1){
-      state='over';playerWon=true;overAt=time+0.6;sfx.win();
+      state='over';clearInput();playerWon=true;overAt=time+0.6;sfx.win();
       for(let i=0;i<46;i++){const a=Math.random()*6.283,sp=60+Math.random()*180;
         parts.push({x:P.x,y:P.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-60,life:0.9+Math.random()*0.6,max:1.5,c:PALETTE[i%PALETTE.length],sz:5});}
     }
@@ -555,7 +555,7 @@ function hud(){
 // ---------- flow ----------
 function startGame(skip){
   try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('landscape').catch(()=>{});}catch(e){}
-  reset();$('#start').classList.add('hidden');$('#end').classList.add('hidden');
+  reset();clearInput();$('#start').classList.add('hidden');$('#end').classList.add('hidden');
   if(skip===true){state='play';cdT=0;}else{state='count';cdT=3.6;}
 }
 let lastCd='';
@@ -592,13 +592,19 @@ function syncKeys(){
   input.ky=(keys.d?1:0)-(keys.u?1:0);
   input.fire=!!keys.space||fireTouch;
 }
+function clearInput(){ // drop every held key / stick / Fire; only a fresh press during play counts
+  for(const k in keys)keys[k]=false;
+  fireTouch=false;fb.classList.remove('on');stickEnd();
+  input.kx=input.ky=input.jx=input.jy=0;input.fire=false;
+}
 addEventListener('keydown',e=>{
   const k=e.key;
-  if(KEYMAP[k]){keys[KEYMAP[k]]=true;e.preventDefault();syncKeys();return;}
+  if(KEYMAP[k]||k===' '||k==='Spacebar')e.preventDefault();
+  if(KEYMAP[k]){if(state==='play'&&!e.repeat){keys[KEYMAP[k]]=true;syncKeys();}return;}
   if(k===' '||k==='Spacebar'){
-    e.preventDefault();
     if(state==='start'){startGame();return;}
-    keys.space=true;syncKeys();return;
+    if(state==='play'&&!e.repeat){keys.space=true;syncKeys();}
+    return;
   }
   if(k==='Enter'||k==='r'||k==='R'){
     if(state==='start')startGame();
@@ -631,12 +637,12 @@ function stickMove(e){
   else{const mag=Math.min(1,n/0.7),mm=Math.hypot(vx,vy)||1;input.jx=vx/mm*mag;input.jy=vy/mm*mag;}
 }
 function stickEnd(){stickId=null;input.jx=input.jy=0;knob.style.transform='translate(0,0)';}
-stick.addEventListener('pointerdown',e=>{e.preventDefault();stickId=e.pointerId;stick.setPointerCapture(e.pointerId);stickMove(e);});
+stick.addEventListener('pointerdown',e=>{e.preventDefault();if(state!=='play')return;stickId=e.pointerId;stick.setPointerCapture(e.pointerId);stickMove(e);});
 stick.addEventListener('pointermove',e=>{if(e.pointerId===stickId)stickMove(e);});
 stick.addEventListener('pointerup',e=>{if(e.pointerId===stickId)stickEnd();});
 stick.addEventListener('pointercancel',e=>{if(e.pointerId===stickId)stickEnd();});
 const fb=$('#fire');
-fb.addEventListener('pointerdown',e=>{e.preventDefault();fb.setPointerCapture(e.pointerId);fireTouch=true;fb.classList.add('on');syncKeys();});
+fb.addEventListener('pointerdown',e=>{e.preventDefault();if(state!=='play')return;fb.setPointerCapture(e.pointerId);fireTouch=true;fb.classList.add('on');syncKeys();});
 const fireEnd=()=>{fireTouch=false;fb.classList.remove('on');syncKeys();};
 fb.addEventListener('pointerup',fireEnd);fb.addEventListener('pointercancel',fireEnd);
 
@@ -652,7 +658,7 @@ function frame(now){
 requestAnimationFrame(frame);
 
 // test hook
-window.__off={step,reset,startGame:()=>startGame(true),startCount:()=>startGame(),input,get tanks(){return tanks;},get state(){return state;},get rh(){return rh;},CX,CY,HX,HY,RL,W,H,STUBS,over,mdist,mouths};
+window.__off={step,reset,startGame:()=>startGame(true),startCount:()=>startGame(),input,get tanks(){return tanks;},get shells(){return shells;},get state(){return state;},get rh(){return rh;},CX,CY,HX,HY,RL,W,H,STUBS,over,mdist,mouths};
 })();
 </script>
 </body>

@@ -22,6 +22,11 @@ Owner prefers: single-file deploys, terse output, iterative scoped changes with 
 - Sound: WebAudio synthesised (`sfx`), starts after first gesture, mute button persists in localStorage.
 - Test hook: `window.__off` ({step, startGame (skips countdown), startCount, tanks, input, state, rh, CX, CY, HX, HY, RL, W, H, STUBS, over, mdist, mouths}). Headless Playwright sims (call `__off.step(1/60)` in a loop) were used to tune AI: idle-player runs should see a first fall within ~20s (median ~5s) and most matches should end. Wide arena (2x100 runs, 60s cap): first fall <=20s in 99/100 and 100/100, median 3.9-4.0s, max ~20s; ended 91-96/100; idle player is the first faller ~85% (square arena: ~72%).
 
+## Countdown / input rules
+- `state` start|count|play|over. `step` does nothing in start and count (no movement, knockback, slide, dust, shells, AI, firing) until GO; `reset()` also clears shells/particles.
+- `clearInput()` (keys, stick, Fire, `input`) runs on startGame (so Rematch too), at GO and at game over. Keydown/pointerdown are ignored unless `state==='play'`, and key auto-repeat is ignored, so anything held before GO has to be released and pressed again.
+- `tests/freeze.js` (node + playwright-core): steps the countdown with input held, asserts no tank state change/no shells, input cleared at GO, and real held keys don't carry past GO.
+
 ## Ideas not done yet
 - Real-phone playtest: stick feel, safe-area fit on notched phones, AI difficulty levels.
 - Haptics (navigator.vibrate), best-streak counter, more arenas, 2-player local.
