@@ -22,6 +22,12 @@ Owner prefers: single-file deploys, terse output, iterative scoped changes with 
 - Sound: WebAudio synthesised (`sfx`), starts after first gesture, mute button persists in localStorage.
 - Test hook: `window.__off` ({step, startGame (skips countdown), startCount, tanks, input, state, rh, CX, CY, HX, HY, RL, W, H, STUBS, over, mdist, mouths}). Headless Playwright sims (call `__off.step(1/60)` in a loop) were used to tune AI: idle-player runs should see a first fall within ~20s (median ~5s) and most matches should end. Wide arena (2x100 runs, 60s cap): first fall <=20s in 99/100 and 100/100, median 3.9-4.0s, max ~20s; ended 91-96/100; idle player is the first faller ~85% (square arena: ~72%).
 
+## Ramps
+- Widening is eased (`rh` approaches `rhT` fast then soft, min 30/s). Each stage plays `sfx.widen(lvl)` (stage 1 lower, stage 2 higher); while widening (`rh<rhT-0.5||rampFlash>0`) the rail lights chase, the chevrons scroll outward and the surface flashes amber.
+- `drawRamps` per side in a rotated frame (x lateral, y outward from `HALF`): chevron surface + slope gradient + depth lines, side rails *outside* the lane with hazard chevrons, red dashed point-of-no-return at depth `NR=RL*SPEED_P/SLIDE` (=40, where slide == player drive) with a red tint beyond, black drop-off lip at the end. Stop walls: bevelled concrete with hazard paint and bolts (`STUBS` entries carry `ux,uy`, their outward direction).
+- Anti-stuck: a tank touching the outer (ramp) face of a stop wall is nudged sideways (90/s) round the wall end; AI panic climb picks a side (`t.pside`) and aims for the gap beside the wall (lateral steering capped at 0.6 so it keeps climbing power; AI cannot climb back past depth ~30, player ~40). Pad-side bracing against the wall is unchanged.
+- `tests/stuck.js`: 196 placements (player + AI, 4 ramps, offsets under/beside the wall) must all climb back.
+
 ## Countdown / input rules
 - `state` start|count|play|over. `step` does nothing in start and count (no movement, knockback, slide, dust, shells, AI, firing) until GO; `reset()` also clears shells/particles.
 - `clearInput()` (keys, stick, Fire, `input`) runs on startGame (so Rematch too), at GO and at game over. Keydown/pointerdown are ignored unless `state==='play'`, and key auto-repeat is ignored, so anything held before GO has to be released and pressed again.

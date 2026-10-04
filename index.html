@@ -169,7 +169,7 @@ const sfx={
   fall(){tone(760,90,0.75,'sawtooth',0.16);noise(0.35,0.2,420,'lowpass',0.55);},
   beep(){tone(440,440,0.14,'square',0.16);},
   go(){tone(880,880,0.4,'square',0.18);tone(1320,1320,0.4,'triangle',0.1);},
-  widen(){tone(180,640,0.4,'triangle',0.18);},
+  widen(n){const b=n===1?360:540;for(let i=0;i<3;i++)tone(b*(1+i*.25),b*(1+i*.25),0.09,'square',0.12,i*0.11);tone(b*0.5,b*1.6,0.45,'triangle',0.16,0.05);}, // stage 1 lower, stage 2 higher
   click(){tone(620,620,0.05,'square',0.1);},
   win(){[523,659,784,1047].forEach((f,i)=>tone(f,f,0.16,'square',0.14,i*0.11));tone(1047,1047,0.5,'triangle',0.12,0.46);},
   lose(){[392,330,262].forEach((f,i)=>tone(f,f*0.97,0.22,'sawtooth',0.14,i*0.2));tone(130,50,0.8,'sawtooth',0.14,0.6);}
@@ -419,8 +419,8 @@ function step(dt){
   // ramps grow as tanks fall: level 1 with 4 tanks, level 2 with 3, full width for the last two
   {
     const n=tanks.filter(t=>t.alive).length,lvl=n>=4?0:n===3?1:2;
-    if(LV[lvl]>rhT){rhT=LV[lvl];widenMsg=2;rampFlash=1;sfx.widen();}
-    if(rh<rhT)rh=Math.min(rhT,rh+70*dt);
+    if(LV[lvl]>rhT){rhT=LV[lvl];widenMsg=2;rampFlash=1;sfx.widen(lvl);}
+    if(rh<rhT)rh=Math.min(rhT,rh+Math.max(30,(rhT-rh)*4)*dt); // eased: fast start, soft landing
     if(widenMsg>0)widenMsg-=dt;
     if(rampFlash>0)rampFlash-=dt*1.4;
     if(flashT>0)flashT-=dt*2.5;
@@ -466,29 +466,71 @@ const S=2,bg=document.createElement('canvas');bg.width=W*S;bg.height=H*S;
   g.strokeStyle='#4a4d55';g.lineWidth=3;g.strokeRect(CX-HX-1.5,CY-HY-1.5,2*HX+3,2*HY+3);
 })();
 function drawRamps(){
+  const tnow=performance.now()/1000,widening=rh<rhT-0.5||rampFlash>0;
+  const NR=RL*SPEED_P/SLIDE; // depth where the slide equals the player's drive: no way back past here
   for(let k=0;k<4;k++){
     ctx.save();ctx.translate(CX,CY);ctx.rotate(k*Math.PI/2);
     const HALF=k%2?HX:HY,END=HALF+RL,rh=k%2?laneX():laneY(); // this side: edge, ramp end, lane half-width
+    // surface: hazard chevrons (scrolling while the ramp widens) dimmed by a slope gradient
     ctx.save();ctx.beginPath();ctx.rect(-rh,HALF-3,2*rh,RL+3);ctx.clip();
     ctx.fillStyle='#f5c400';ctx.fillRect(-rh,HALF-3,2*rh,RL+3);
     ctx.fillStyle='#111';
-    for(let y0=HALF-12;y0<END;y0+=26){
-      ctx.beginPath();ctx.moveTo(-rh,y0);ctx.lineTo(0,y0+Math.min(34,rh*0.5+10));ctx.lineTo(rh,y0);ctx.lineTo(rh,y0+13);ctx.lineTo(0,y0+13+Math.min(34,rh*0.5+10));ctx.lineTo(-rh,y0+13);ctx.closePath();ctx.fill();
+    const dh=Math.min(34,rh*0.5+10),sc0=widening?(tnow*70)%26:0;
+    for(let y0=HALF-12+sc0-26;y0<END;y0+=26){
+      ctx.beginPath();ctx.moveTo(-rh,y0);ctx.lineTo(0,y0+dh);ctx.lineTo(rh,y0);ctx.lineTo(rh,y0+13);ctx.lineTo(0,y0+13+dh);ctx.lineTo(-rh,y0+13);ctx.closePath();ctx.fill();
     }
-    const gr=ctx.createLinearGradient(0,HALF,0,END);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(0,0,0,.4)');
+    const gr=ctx.createLinearGradient(0,HALF,0,END);gr.addColorStop(0,'rgba(0,0,0,.05)');gr.addColorStop(0.5,'rgba(0,0,0,.45)');gr.addColorStop(1,'rgba(0,0,0,.88)');
     ctx.fillStyle=gr;ctx.fillRect(-rh,HALF,2*rh,RL);
+    ctx.fillStyle='rgba(200,20,20,.16)';ctx.fillRect(-rh,HALF+NR,2*rh,RL-NR); // beyond the point of no return
+    for(let i=1;i<8;i++){ // depth lines: shadow + highlight ridge
+      const y=HALF+RL*i/8;ctx.fillStyle='rgba(0,0,0,'+(0.25+i*0.04)+')';ctx.fillRect(-rh,y,2*rh,1.5);
+      ctx.fillStyle='rgba(255,255,255,'+(0.16-i*0.015)+')';ctx.fillRect(-rh,y+1.5,2*rh,1);
+    }
+    if(rampFlash>0){ctx.fillStyle='rgba(255,230,120,'+(Math.min(1,rampFlash)*0.5)+')';ctx.fillRect(-rh,HALF,2*rh,RL);}
+    // point of no return
+    ctx.setLineDash([7,5]);ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,.7)';ctx.beginPath();ctx.moveTo(-rh,HALF+NR+1.5);ctx.lineTo(rh,HALF+NR+1.5);ctx.stroke();
+    ctx.strokeStyle='#ff3b30';ctx.beginPath();ctx.moveTo(-rh,HALF+NR);ctx.lineTo(rh,HALF+NR);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#ff3b30';
+    for(const x of [-rh*0.5,0,rh*0.5]){ctx.beginPath();ctx.moveTo(x-4,HALF+NR+5);ctx.lineTo(x+4,HALF+NR+5);ctx.lineTo(x,HALF+NR+11);ctx.closePath();ctx.fill();}
+    // drop-off: the surface ends in a lip, then black void
+    const dg=ctx.createLinearGradient(0,END-36,0,END-14);dg.addColorStop(0,'rgba(0,0,0,0)');dg.addColorStop(1,'rgba(0,0,0,.9)');
+    ctx.fillStyle=dg;ctx.fillRect(-rh,END-36,2*rh,22);
+    ctx.fillStyle='#000';ctx.fillRect(-rh,END-14,2*rh,15);
+    ctx.fillStyle='rgba(255,255,255,.28)';ctx.fillRect(-rh,END-14.5,2*rh,1.5);
     ctx.restore();
     ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(-rh,HALF-1.5,2*rh,3);
-    if(rampFlash>0){ctx.fillStyle='rgba(255,255,255,'+(Math.min(1,rampFlash)*0.55)+')';ctx.fillRect(-rh,HALF,2*rh,RL);}
-    ctx.fillStyle='#000';ctx.fillRect(-rh,END-3,2*rh,3);
-    ctx.strokeStyle='#4a4d55';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-rh,HALF);ctx.lineTo(-rh,END);ctx.moveTo(rh,HALF);ctx.lineTo(rh,END);ctx.stroke();
+    // side rails (outside the lane) with hazard chevrons, plus warning lights
+    for(const sg of [-1,1]){
+      const a=sg<0?-rh-8:rh;
+      ctx.fillStyle='#17181c';ctx.fillRect(a,HALF-3,8,RL+3);
+      ctx.save();ctx.beginPath();ctx.rect(a,HALF-3,8,RL+3);ctx.clip();
+      ctx.fillStyle='#f5c400';
+      for(let y0=HALF-6;y0<END;y0+=12){ctx.beginPath();ctx.moveTo(a,y0);ctx.lineTo(a+4,y0+4.5);ctx.lineTo(a+8,y0);ctx.lineTo(a+8,y0+5);ctx.lineTo(a+4,y0+9.5);ctx.lineTo(a,y0+5);ctx.closePath();ctx.fill();}
+      ctx.restore();
+      ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(sg<0?a:a+7,HALF-3,1,RL+3);          // bevel on the lane side
+      ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(sg<0?a+8:a-3,HALF,3,RL);                    // rail shadow on the slope
+      for(let i=0;i<3;i++){ // warning lights; chase while the ramp is widening
+        const on=widening?((tnow*9|0)%3)===i:false,ly=HALF+6+i*(RL-14)/2,lx=a+4;
+        ctx.fillStyle=on?'rgba(255,170,0,.35)':'rgba(0,0,0,0)';if(on){ctx.beginPath();ctx.arc(lx,ly,8,0,6.283);ctx.fill();}
+        ctx.fillStyle=on?'#ffd24a':'#6b4a00';ctx.beginPath();ctx.arc(lx,ly,3,0,6.283);ctx.fill();
+        ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
+      }
+    }
     ctx.restore();
   }
-  for(const r of STUBS){
-    ctx.fillStyle='#9aa0ab';ctx.fillRect(r.x0,r.y0,r.x1-r.x0,r.y1-r.y0);
-    ctx.strokeStyle='#000';ctx.lineWidth=1.5;ctx.strokeRect(r.x0,r.y0,r.x1-r.x0,r.y1-r.y0);
-    ctx.fillStyle='rgba(255,255,255,.35)';
-    if(r.x1-r.x0>r.y1-r.y0)ctx.fillRect(r.x0+1,r.y0+1,r.x1-r.x0-2,2);else ctx.fillRect(r.x0+1,r.y0+1,2,r.y1-r.y0-2);
+  for(const r of STUBS){ // stop walls: concrete barrier, hazard paint, bevel, bolts
+    const w=r.x1-r.x0,h=r.y1-r.y0;
+    ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(r.x0+r.ux*2+2,r.y0+r.uy*2+3,w,h);
+    ctx.fillStyle='#8f949e';ctx.fillRect(r.x0,r.y0,w,h);
+    ctx.save();ctx.beginPath();ctx.rect(r.x0+1.5,r.y0+1.5,w-3,h-3);ctx.clip();
+    ctx.fillStyle='#f5c400';ctx.fillRect(r.x0,r.y0,w,h);ctx.fillStyle='#15161a';
+    for(let d=-h;d<w;d+=9){ctx.beginPath();ctx.moveTo(r.x0+d,r.y1);ctx.lineTo(r.x0+d+4.5,r.y1);ctx.lineTo(r.x0+d+4.5+h,r.y0);ctx.lineTo(r.x0+d+h,r.y0);ctx.closePath();ctx.fill();}
+    ctx.restore();
+    ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillRect(r.x0,r.y0,w,1.5);ctx.fillRect(r.x0,r.y0,1.5,h);   // lit top/left bevel
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(r.x0,r.y1-1.5,w,1.5);ctx.fillRect(r.x1-1.5,r.y0,1.5,h); // shaded bottom/right bevel
+    ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.strokeRect(r.x0,r.y0,w,h);
+    ctx.fillStyle='#2a2c31';
+    for(const e of [-1,1]){const bx=r.x0+w/2+(w>h?e*(w/2-4):0),by=r.y0+h/2+(w>h?0:e*(h/2-4));ctx.beginPath();ctx.arc(bx,by,1.6,0,6.283);ctx.fill();}
   }
 }
 
