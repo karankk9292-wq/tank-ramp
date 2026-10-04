@@ -8,14 +8,16 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;background:#08080a;color:#f5c400;overflow:hidden;overscroll-behavior:none;touch-action:none;
     font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;-webkit-user-select:none;user-select:none}
-  #wrap{position:relative;display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:100vw}
-  #hud{flex:none;display:flex;justify-content:space-between;gap:12px;align-items:center;padding:calc(8px + env(safe-area-inset-top)) 14px 8px;
-    font-size:13px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;background:#0e0e11;border-bottom:2px solid #f5c400}
-  #count{white-space:nowrap}
+  /* the canvas fills the screen (inside the side safe areas); HUD and controls float over the dead corners beside the ramps */
+  #wrap{position:fixed;inset:0;padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+  #stage{position:relative;height:100%}
+  #hud{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+    padding:calc(8px + env(safe-area-inset-top)) 12px 0;pointer-events:none;
+    font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;text-shadow:0 1px 3px #000}
+  #hl{display:flex;flex-direction:column;gap:4px;max-width:150px}
   button#mute{margin:0;padding:4px 9px;font-size:11px;letter-spacing:.06em;border-radius:6px;background:transparent;color:#f5c400;border:1px solid #f5c400;pointer-events:auto;flex:none}
   button#mute.off{color:#888;border-color:#555}
-  #status{color:#fff;text-align:right}
-  #stage{position:relative;flex:1;min-height:0}
+  #status{color:#fff}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
   .ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
     background:rgba(8,8,10,.84);text-align:center;padding:20px;z-index:5}
@@ -39,39 +41,43 @@
   @keyframes pop{from{transform:scale(1.6);opacity:.2}to{transform:scale(1);opacity:1}}
   @media (prefers-reduced-motion:reduce){#cd.pop{animation:none}}
   #ctl{display:none}
-  body.touch #ctl{display:flex;flex:none;justify-content:space-between;align-items:center;height:160px;
-    padding:8px 22px calc(8px + env(safe-area-inset-bottom));background:#0e0e11}
-  #stick{position:relative;width:132px;height:132px;border-radius:50%;background:rgba(245,196,0,.10);border:2px solid rgba(245,196,0,.5);touch-action:none}
-  #knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:#f5c400;opacity:.9;pointer-events:none}
-  #fire{width:104px;height:104px;border-radius:50%;margin:0;padding:0;font-size:17px;background:#e5484d;color:#fff;border:3px solid #ffd0d0;touch-action:none}
+  body.touch #ctl{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;justify-content:space-between;align-items:flex-end;
+    padding:0 12px calc(10px + env(safe-area-inset-bottom));pointer-events:none}
+  body.touch #ctl>*{pointer-events:auto}
+  #stick{position:relative;width:112px;height:112px;border-radius:50%;background:rgba(245,196,0,.10);border:2px solid rgba(245,196,0,.5);touch-action:none}
+  #knob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:#f5c400;opacity:.9;pointer-events:none}
+  #fire{width:92px;height:92px;border-radius:50%;margin:0;padding:0;font-size:16px;background:#e5484d;color:#fff;border:3px solid #ffd0d0;touch-action:none}
   #fire.on{background:#ff7b7f}
-  body.rot #wrap{position:fixed;left:0;top:0;transform-origin:0 0;max-width:none}
-  body.land.touch #ctl{position:absolute;left:0;right:0;bottom:0;height:auto;background:none;pointer-events:none;z-index:4;
-    padding:8px 22px 10px 22px}
-  body.land.touch #ctl>*{pointer-events:auto}
-  body.compact #hud{position:absolute;top:0;left:0;right:0;z-index:3;background:none;border:0;pointer-events:none;font-size:12px;
-    padding:6px 16px 0 16px;text-shadow:0 1px 3px #000}
-  body.compact #stick{width:118px;height:118px}
-  body.compact #knob{width:50px;height:50px;margin:-25px 0 0 -25px}
-  body.compact #fire{width:94px;height:94px}
-  body.compact .ov{gap:5px;padding:10px}
-  body.compact h1{font-size:30px}
-  body.compact .bar{height:8px;margin:2px 0 4px}
-  body.compact .ov p{font-size:14px;line-height:1.35}
-  body.compact .ov small{display:none}
-  body.compact .lbl{margin-top:4px}
-  body.compact button{padding:9px 28px;margin-top:6px;font-size:16px}
-  body.compact button.sw{padding:0;margin:0}
-  body.compact button#mute{padding:4px 9px;margin:0;font-size:11px}
-  body.compact #endTitle{font-size:26px}
-  body.compact #cd{font-size:90px}
+  #rot{display:none}
+  @media (orientation:portrait){body.touch #rot{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+    background:#08080a;font-size:20px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}}
+  #rot i{width:38px;height:64px;border:3px solid #f5c400;border-radius:7px;animation:tilt 1.6s ease-in-out infinite alternate}
+  @keyframes tilt{to{transform:rotate(90deg)}}
+  @media (prefers-reduced-motion:reduce){#rot i{animation:none;transform:rotate(90deg)}}
+  @media (max-height:600px){
+    .ov{gap:5px;padding:10px}
+    h1{font-size:30px}
+    .bar{height:8px;margin:2px 0 4px}
+    .ov p{font-size:14px;line-height:1.35}
+    .ov small{display:none}
+    .lbl{margin-top:4px}
+    button{padding:9px 28px;margin-top:6px;font-size:16px}
+    button.sw{padding:0;margin:0}
+    button#mute{padding:4px 9px;margin:0;font-size:11px}
+    #endTitle{font-size:26px}
+    #cd{font-size:90px}
+  }
 </style>
 </head>
 <body>
 <div id="wrap">
-  <div id="hud"><span id="count">Tanks on pad: 4</span><span id="status">Shove them down the ramp</span><button id="mute" type="button">Sound on</button></div>
   <div id="stage">
     <canvas id="c"></canvas>
+    <div id="hud"><div id="hl"><span id="count">Tanks on pad: 4</span><span id="status">Shove them down the ramp</span></div><button id="mute" type="button">Sound on</button></div>
+    <div id="ctl">
+      <div id="stick"><div id="knob"></div></div>
+      <button id="fire">Fire</button>
+    </div>
     <div id="start" class="ov">
       <h1>OFF RAMP</h1>
       <div class="bar"></div>
@@ -92,11 +98,8 @@
       <button id="again">Rematch</button>
     </div>
   </div>
-  <div id="ctl">
-    <div id="stick"><div id="knob"></div></div>
-    <button id="fire">Fire</button>
-  </div>
 </div>
+<div id="rot"><i></i>Rotate your phone</div>
 <script>
 (()=>{
 'use strict';
@@ -611,28 +614,15 @@ addEventListener('blur',()=>{for(const k in keys)keys[k]=false;syncKeys();});
 
 const isMobile=matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 if(isMobile)document.body.classList.add('touch');
-// Mobile always plays landscape: if the phone is held upright, turn the whole game 90 degrees.
-let rotated=false;
-function fit(){
-  const iw=window.innerWidth,ih=window.innerHeight,wrap=$('#wrap'),bd=document.body;
-  rotated=bd.classList.contains('touch')&&ih>iw;
-  bd.classList.toggle('rot',rotated);
-  const ew=rotated?ih:iw,eh=rotated?iw:ih;
-  bd.classList.toggle('land',ew>eh);bd.classList.toggle('compact',ew>eh&&eh<=600);
-  if(rotated){wrap.style.width=ih+'px';wrap.style.height=iw+'px';wrap.style.transform='translateX('+iw+'px) rotate(90deg)';}
-  else{wrap.style.width='';wrap.style.height='';wrap.style.transform='';}
-  resize();
-}
-addEventListener('resize',fit);addEventListener('orientationchange',()=>setTimeout(fit,150));
-addEventListener('touchstart',()=>{if(!document.body.classList.contains('touch')){document.body.classList.add('touch');fit();}},{passive:true,once:true});
-fit();
+addEventListener('touchstart',()=>document.body.classList.add('touch'),{passive:true,once:true});
+// Landscape only on touch devices: upright shows the "Rotate your phone" screen (CSS) and the sim pauses.
+const upright=()=>document.body.classList.contains('touch')&&innerHeight>innerWidth;
 document.addEventListener('contextmenu',e=>e.preventDefault());
 
 const stick=$('#stick'),knob=$('#knob');let stickId=null,fireTouch=false;
 function stickMove(e){
   const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,max=r.width/2*0.9;
   let vx=e.clientX-cx,vy=e.clientY-cy;
-  if(rotated){const t=vx;vx=vy;vy=-t;} // screen -> game axes when the layout is turned 90deg
   const m=Math.hypot(vx,vy);
   if(m>max){vx*=max/m;vy*=max/m;}
   knob.style.transform=`translate(${vx}px,${vy}px)`;
@@ -654,6 +644,7 @@ fb.addEventListener('pointerup',fireEnd);fb.addEventListener('pointercancel',fir
 let last=performance.now(),acc=0;
 function frame(now){
   acc+=Math.min(0.1,(now-last)/1000);last=now;
+  if(upright())acc=0;
   while(acc>=1/60){step(1/60);acc-=1/60;}
   hud();cdHud();render();
   requestAnimationFrame(frame);
