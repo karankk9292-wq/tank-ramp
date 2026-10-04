@@ -20,7 +20,15 @@ Owner prefers: single-file deploys, terse output, iterative scoped changes with 
 - Touch device held upright: CSS `#rot` "Rotate your phone" screen and the frame loop stops stepping (`upright()`). `startGame` tries `screen.orientation.lock('landscape')`, failures ignored.
 - Known: on notched phones (~47px side insets) at full ramp width the stick circle slightly overlaps the far bottom corner of the left ramp (visual only).
 - Sound: WebAudio synthesised (`sfx`), starts after first gesture, mute button persists in localStorage.
+- Tests (node + playwright-core + Chromium, run from repo root): `tests/sim.js` (idle-player sims), `tests/freeze.js` (nothing moves/fires before GO, input cleared), `tests/stuck.js` (stop-wall escape), `tests/behaviour.js` (AI camping/panic/fighting, bump direction, shell vs bump knockback, loss/win). Set `NODE_PATH` to a playwright-core install and `CHROME` to a Chromium if the defaults do not fit.
 - Test hook: `window.__off` ({step, startGame (skips countdown), startCount, tanks, input, state, rh, CX, CY, HX, HY, RL, W, H, STUBS, over, mdist, mouths}). Headless Playwright sims (call `__off.step(1/60)` in a loop) were used to tune AI: idle-player runs should see a first fall within ~20s (median ~5s) and most matches should end. Wide arena (2x100 runs, 60s cap): first fall <=20s in 99/100 and 100/100, median 3.9-4.0s, max ~20s; ended 91-96/100; idle player is the first faller ~85% (square arena: ~72%).
+
+## HUD, countdown, end screens, sound
+- HUD: top-left a row of 4 colour pips (`#pips`, rebuilt only when the alive/colour signature changes; player pip has a white ring, fallen tanks dim) with a short status line under it; Sound toggle top-right. Status strings stay short (<~16 chars).
+- Countdown: `#cd` classes `n` (3/2/1: pop-in, hold, shrink-out, expanding ring) and `go` (white glow burst + ring); GO also spawns a canvas ring/glow/sparks at the centre and a little shake. `prefers-reduced-motion` disables the CSS animations.
+- End overlay: `#end.win` / `#end.lose` (tinted backdrop, red hazard bar on loss), kicker + title + `Lasted m:ss - You shoved N tanks off` (`shoved` counts AIs whose last pusher was the player within 2.5s; `aiShoved` the same for AIs). Rematch flow unchanged (`startGame` -> countdown).
+- Pushes are attributed: `t.by={o:pusher,t:time}` is set on bump (loser) and shell hit. `t.pan` is true only while an AI is in panic-climb (always on a ramp).
+- Sound (all WebAudio, no assets): countdown tick per number (pitch rises toward GO), 3-note widen alarm (lower stage 1, higher stage 2), pitch-randomised fire, bump scaled by closing speed, heavier shell hit (extra sub thump, sometimes a metallic ping), stop-wall clank (first contact only), shell-on-wall ping, win/lose jingles. Engine hum: two low oscillators -> low-pass, `humUpdate()` each frame sets gain/pitch from the player's and AIs' speed; 0 when not in `play`, upright, or muted; context suspended when the tab is hidden. Mute persists in localStorage.
 
 ## Graphics / performance
 - Baked once, never redrawn: `bg` (S=2: plated dead blocks, staggered concrete slabs with expansion joints, oil stains, tyre scuffs, cracks, chipped paint layer = hazard edge, keep-out lines, dashed guides, centre emblem, lamp bodies), tank hull+turret sprites per colour (`tankSpr`, 3x), and soft sprites (`smokeSpr`, `dustSpr`, `glowSpr`, `shadowSpr`). Per frame: blit `bg`, blit the pad rect of `marks`, `drawLights` (glow sprites from `LIGHTS`, pulse; fast flash while ramps widen), ramps (gradients cached in `rampG`), tanks, shells, particles. No gradients are created per frame.
@@ -41,5 +49,6 @@ Owner prefers: single-file deploys, terse output, iterative scoped changes with 
 - `tests/freeze.js` (node + playwright-core): steps the countdown with input held, asserts no tank state change/no shells, input cleared at GO, and real held keys don't carry past GO.
 
 ## Ideas not done yet
+- Not verified without a device: sound levels/engine hum balance, stick feel, perf on a real mid-range phone, notched-phone safe areas.
 - Real-phone playtest: stick feel, safe-area fit on notched phones, AI difficulty levels.
 - Haptics (navigator.vibrate), best-streak counter, more arenas, 2-player local.
