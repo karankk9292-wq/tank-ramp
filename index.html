@@ -14,7 +14,11 @@
   #hud{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
     padding:calc(8px + env(safe-area-inset-top)) 12px 0;pointer-events:none;
     font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;text-shadow:0 1px 3px #000}
-  #hl{display:flex;flex-direction:column;gap:4px;max-width:150px}
+  #hl{display:flex;flex-direction:column;gap:6px;max-width:170px}
+  #pips{display:flex;gap:7px}
+  .pip{width:15px;height:15px;border-radius:50%;border:2px solid rgba(0,0,0,.75);box-shadow:0 0 0 1.5px rgba(255,255,255,.35);transition:opacity .3s,transform .3s}
+  .pip.me{box-shadow:0 0 0 2px #fff}
+  .pip.dead{opacity:.28;filter:grayscale(1);transform:scale(.8)}
   button#mute{margin:0;padding:4px 9px;font-size:11px;letter-spacing:.06em;border-radius:6px;background:transparent;color:#f5c400;border:1px solid #f5c400;pointer-events:auto;flex:none}
   button#mute.off{color:#888;border-color:#555}
   #status{color:#fff}
@@ -30,16 +34,32 @@
   button{font:inherit;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#111;background:#f5c400;border:0;
     border-radius:10px;padding:14px 34px;margin-top:14px;font-size:18px;cursor:pointer}
   button:active{transform:scale(.97)}
-  #endTitle{font-size:34px}
+  #endTitle{font-size:34px;animation:endin .45s ease-out both}
+  @keyframes endin{from{transform:scale(1.5);opacity:0}to{transform:scale(1);opacity:1}}
+  @media (prefers-reduced-motion:reduce){#endTitle{animation:none}}
+  #endKick{font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:#aaa}
+  #endSub{font-size:14px;color:#cfcfcf}
+  #end.win{background:radial-gradient(circle at 50% 45%,rgba(245,196,0,.22),rgba(8,8,10,.9) 70%)}
+  #end.win #endKick{color:#f5c400}
+  #end.win #endTitle{color:#fff;text-shadow:0 0 22px rgba(245,196,0,.8),0 3px 0 #000}
+  #end.lose{background:radial-gradient(circle at 50% 45%,rgba(229,72,77,.22),rgba(8,8,10,.92) 70%)}
+  #end.lose #endKick{color:#ff6b70}
+  #end.lose #endTitle{color:#ff5a5f;text-shadow:0 3px 0 #000}
+  #end.lose .bar{background:repeating-linear-gradient(135deg,#e5484d 0 10px,#111 10px 20px)}
   .lbl{margin-top:10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#888}
   .sws{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:330px}
   button.sw{width:32px;height:32px;padding:0;margin:0;border-radius:50%;border:3px solid #111;box-shadow:0 0 0 2px transparent}
   button.sw.sel{box-shadow:0 0 0 3px #fff}
   #cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:4;
     font-size:130px;font-weight:900;letter-spacing:.04em;color:#f5c400;text-shadow:0 4px 0 #000,0 0 30px rgba(0,0,0,.7)}
-  #cd.pop{animation:pop .5s ease-out}
-  @keyframes pop{from{transform:scale(1.6);opacity:.2}to{transform:scale(1);opacity:1}}
-  @media (prefers-reduced-motion:reduce){#cd.pop{animation:none}}
+  #cd.n{animation:tick 1s ease-in both}
+  #cd.n::after,#cd.go::after{content:'';position:absolute;left:50%;top:50%;width:110px;height:110px;margin:-55px 0 0 -55px;border:4px solid #f5c400;border-radius:50%;animation:ringout 1s ease-out both}
+  #cd.go{color:#fff;animation:goburst .6s ease-out both;text-shadow:0 0 22px #f5c400,0 0 56px #f5c400,0 4px 0 #000}
+  #cd.go::after{animation-duration:.6s;width:140px;height:140px;margin:-70px 0 0 -70px}
+  @keyframes tick{0%{transform:scale(1.7);opacity:0}15%{transform:scale(1);opacity:1}70%{transform:scale(.94);opacity:1}100%{transform:scale(.7);opacity:0}}
+  @keyframes goburst{0%{transform:scale(.6);opacity:0}25%{transform:scale(1.3);opacity:1}100%{transform:scale(2);opacity:0}}
+  @keyframes ringout{from{transform:scale(.4);opacity:.9}to{transform:scale(3);opacity:0}}
+  @media (prefers-reduced-motion:reduce){#cd.n,#cd.go,#cd.n::after,#cd.go::after{animation:none}#cd.n::after,#cd.go::after{display:none}}
   #ctl{display:none}
   body.touch #ctl{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;justify-content:space-between;align-items:flex-end;
     padding:0 12px calc(10px + env(safe-area-inset-bottom));pointer-events:none}
@@ -66,6 +86,7 @@
     button#mute{padding:4px 9px;margin:0;font-size:11px}
     #endTitle{font-size:26px}
     #cd{font-size:90px}
+    #end .bar{margin:0}
   }
 </style>
 </head>
@@ -73,7 +94,7 @@
 <div id="wrap">
   <div id="stage">
     <canvas id="c"></canvas>
-    <div id="hud"><div id="hl"><span id="count">Tanks on pad: 4</span><span id="status">Shove them down the ramp</span></div><button id="mute" type="button">Sound on</button></div>
+    <div id="hud"><div id="hl"><div id="pips" role="img" aria-label="Tanks on pad: 4"></div><span id="status">Push them off</span></div><button id="mute" type="button">Sound on</button></div>
     <div id="ctl">
       <div id="stick"><div id="knob"></div></div>
       <button id="fire">Fire</button>
@@ -91,8 +112,10 @@
     </div>
     <div id="cd" class="hidden"></div>
     <div id="end" class="ov hidden">
+      <div id="endKick">Eliminated</div>
       <h1 id="endTitle">Down the ramp</h1>
       <div class="bar"></div>
+      <p id="endSub"></p>
       <div class="lbl">Your tank</div>
       <div class="sws" id="sw2"></div>
       <button id="again">Rematch</button>
@@ -141,10 +164,10 @@ const PALETTE=['#ffd21f','#ef4444','#3b82f6','#a855f7','#22c55e','#f97316','#ec4
 const darker=c=>'#'+[1,3,5].map(i=>Math.round(parseInt(c.slice(i,i+2),16)*0.55).toString(16).padStart(2,'0')).join('');
 let playerColor=PALETTE[0],cdT=0,flashT=0,rampFlash=0,bumpT=-1;
 // ---------- sound (synthesised, no files) ----------
-let AC=null,master=null,noiseBuf=null,muted=false;
+let AC=null,master=null,noiseBuf=null,muted=false,hum=null;
 try{muted=localStorage.getItem('offramp-mute')==='1';}catch(e){}
 function audio(){
-  if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=0.8;master.connect(AC.destination);}catch(e){AC=null;}}
+  if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=0.8;master.connect(AC.destination);startHum();}catch(e){AC=null;}}
   if(AC&&AC.state==='suspended')AC.resume();
 }
 function tone(f0,f1,dur,type,vol,delay){
@@ -162,12 +185,32 @@ function noise(dur,vol,freq,kind,delay){
   g.gain.setValueAtTime(vol,t0);g.gain.exponentialRampToValueAtTime(0.001,t0+dur);
   src.connect(f);f.connect(g);g.connect(master);src.start(t0,Math.random()*0.5);src.stop(t0+dur+0.02);
 }
+function startHum(){ // quiet engine bed: two low oscillators through a low-pass; gain/pitch follow tank speed (humUpdate)
+  const g=AC.createGain(),f=AC.createBiquadFilter(),o1=AC.createOscillator(),o2=AC.createOscillator();
+  g.gain.value=0;f.type='lowpass';f.frequency.value=240;o1.type='sawtooth';o2.type='square';o1.frequency.value=46;o2.frequency.value=23;
+  o1.connect(f);o2.connect(f);f.connect(g);g.connect(master);o1.start();o2.start();hum={g,o1,o2};
+}
+function humUpdate(){
+  if(!hum||!AC)return;
+  let tg=0,fr=46;
+  if(!muted&&state==='play'&&!upright()){
+    const P=tanks[0];let a=0,n=0;
+    for(const t of tanks)if(t.alive&&!t.isPlayer){a+=t.sp/SPEED_AI;n++;}
+    a=n?a/n:0;const pf=P.alive?P.sp/SPEED_P:0;
+    tg=0.016+0.03*pf+0.012*a;fr=44+34*pf+16*a;
+  }
+  const now=AC.currentTime;hum.g.gain.setTargetAtTime(tg,now,0.12);hum.o1.frequency.setTargetAtTime(fr,now,0.15);hum.o2.frequency.setTargetAtTime(fr/2,now,0.15);
+}
+document.addEventListener('visibilitychange',()=>{if(AC){if(document.hidden)AC.suspend();else AC.resume();}});
+const rv=a=>1+(Math.random()-0.5)*a; // small random pitch variation
 const sfx={
-  fire(me){const v=me?1:0.55;noise(0.12,0.28*v,1800,'bandpass');tone(240,60,0.13,'sawtooth',0.18*v);},
-  hit(){tone(170,40,0.2,'square',0.28);noise(0.14,0.3,900,'lowpass');},
-  bump(){tone(95,45,0.09,'triangle',0.28);},
+  fire(me){const v=me?1:0.55,r=rv(.2);noise(0.12,0.28*v,1800*r,'bandpass');tone(240*r,60*r,0.13,'sawtooth',0.18*v);},
+  hit(){const r=rv(.2);tone(170*r,40,0.2,'square',0.3);tone(70*r,34,0.26,'sine',0.26);noise(0.14,0.32,900*r,'lowpass');if(Math.random()<0.5)tone(1300*r,700,0.05,'square',0.05);}, // heavier than a bump
+  bump(v){const r=rv(.3);tone(95*r,45*r,0.09,'triangle',0.16+0.14*v);if(v>0.5)noise(0.05,0.12,700,'lowpass');},
+  clank(){const r=rv(.3);tone(520*r,300*r,0.07,'square',0.07);noise(0.04,0.1,2500,'bandpass');},
+  ping(){tone(900*rv(.3),500,0.04,'square',0.05);},
   fall(){tone(760,90,0.75,'sawtooth',0.16);noise(0.35,0.2,420,'lowpass',0.55);},
-  beep(){tone(440,440,0.14,'square',0.16);},
+  beep(n){const f=[0,659,554,466][n]||440;tone(f,f,0.07,'square',0.16);noise(0.03,0.14,3500,'highpass');}, // a tick per number, higher as it nears GO
   go(){tone(880,880,0.4,'square',0.18);tone(1320,1320,0.4,'triangle',0.1);},
   widen(n){const b=n===1?360:540;for(let i=0;i<3;i++)tone(b*(1+i*.25),b*(1+i*.25),0.09,'square',0.12,i*0.11);tone(b*0.5,b*1.6,0.45,'triangle',0.16,0.05);}, // stage 1 lower, stage 2 higher
   click(){tone(620,620,0.05,'square',0.1);},
@@ -179,7 +222,7 @@ function addP(p){if(parts.length>=MAXP)parts.shift();parts.push(p);}
 function ring(x,y,r0,r1,c,life){addP({k:'ring',x,y,vx:0,vy:0,life,max:life,c,r0,r1});}
 function puff(x,y,sz,gr,al,life,dust,vx,vy){addP({k:'smoke',x,y,vx,vy,life,max:life,sz,gr,al,dust,drag:2.5});}
 function glow(x,y,sz,life){addP({k:'glow',x,y,vx:0,vy:0,life,max:life,sz});}
-let rh=LV[0],rhT=LV[0],widenMsg=0;
+let rh=LV[0],rhT=LV[0],widenMsg=0,shoved=0,aiShoved=0,endT=0; // shoved: AIs the player pushed off; aiShoved: AIs pushed off by other AIs
 let tanks=[],shells=[],parts=[],time=0,shake=0,overAt=0,overShownAt=0,playerWon=false;
 const input={kx:0,ky:0,jx:0,jy:0,fire:false};
 const keys={};
@@ -199,13 +242,13 @@ function reset(){
     mk(2,CX+HX-D+J(),CY+J(),ai[1],darker(ai[1]),false),
     mk(3,CX+J(),CY-HY+D+J()/2,ai[2],darker(ai[2]),false)
   ];
-  shells=[];parts=[];mctx.clearRect(0,0,W,H);time=0;shake=0;playerWon=false;rh=rhT=LV[0];widenMsg=0;flashT=0;rampFlash=0;
+  shells=[];parts=[];mctx.clearRect(0,0,W,H);shoved=aiShoved=0;time=0;shake=0;playerWon=false;rh=rhT=LV[0];widenMsg=0;flashT=0;rampFlash=0;
 }
 reset();
 
 // ---------- AI ----------
 function think(t,dt){
-  t.rt-=dt;
+  t.rt-=dt;t.pan=false; // pan: climbing in panic (only ever true on a ramp)
   if(t.rt<=0||!t.tgt||!t.tgt.alive){
     t.rt=0.3+Math.random()*0.2;
     let best=null;
@@ -222,7 +265,7 @@ function think(t,dt){
       const o=outDir(t),v=[-o[1],o[0]],lat=(t.x-CX)*v[0]+(t.y-CY)*v[1],lane=o[0]?laneX():laneY();
       if(!t.pside)t.pside=lat>=0?1:-1; // stay on one side of the stop wall while climbing
       const st=clamp((t.pside*(STUB_L+(lane-STUB_L)/2)-lat)/24,-.6,.6); // aim for the open gap beside it
-      t.dx=-o[0]+v[0]*st;t.dy=-o[1]+v[1]*st;
+      t.dx=-o[0]+v[0]*st;t.dy=-o[1]+v[1]*st;t.pan=true;
       return;
     }
   }
@@ -288,6 +331,7 @@ function spark(x,y,n,c,sp){
 }
 function kill(t){
   const o=outDir(t);t.fx=o[0];t.fy=o[1];
+  if(!t.isPlayer&&t.by&&time-t.by.t<2.5){if(t.by.o.isPlayer)shoved++;else aiShoved++;}
   t.alive=false;t.fallT=0;t.dx=t.dy=0;
   shake=Math.max(shake,5);
   spark(t.x,t.y,14,'#ffffff',140);
@@ -359,13 +403,13 @@ function step(dt){
         const pa=(a.dx*dx+a.dy*dy)/d,pb=-(b.dx*dx+b.dy*dy)/d;
         upA=Math.abs(pa-pb)>0.05?pa>pb:(ra>rb||(ra===rb&&a.id<b.id));
       }
-      const up=upA?a:b,dn=upA?b:a;
+      const up=upA?a:b,dn=upA?b:a;if(it===0)dn.by={o:up,t:time};
       const nx=(dn.x-up.x)/d,ny=(dn.y-up.y)/d;
       const pen=min-Math.hypot(dn.x-up.x,dn.y-up.y);
       dn.x+=nx*pen*0.8;dn.y+=ny*pen*0.8;
       up.x-=nx*pen*0.2;up.y-=ny*pen*0.2;
       if(it===0){
-        if(time-bumpT>0.14){bumpT=time;sfx.bump();spark((a.x+b.x)/2,(a.y+b.y)/2,5,'#e8e8e8',90);}
+        if(time-bumpT>0.14){bumpT=time;sfx.bump(Math.min(1,Math.hypot(a.sp,b.sp)/160));spark((a.x+b.x)/2,(a.y+b.y)/2,5,'#e8e8e8',90);}
         // shove direction: away from pusher, biased hard toward the loser's nearest ramp
         const o=mouthDir(dn);
         let sx=nx*0.7+o[0]*0.75,sy=ny*0.7+o[1]*0.75;const sm=Math.hypot(sx,sy)||1;sx/=sm;sy/=sm;
@@ -389,10 +433,12 @@ function step(dt){
       if(Math.abs(ay)-My<Math.abs(ax)-Ly){t.y=CY+Math.sign(ay)*My;if(t.ky*ay>0)t.ky*=-0.3;}
       else{t.x=CX+Math.sign(ax)*Ly;if(t.kx*ax>0)t.kx*=-0.3;}
     }
+    let hs=false;
     for(const r of STUBS){
       const cx=clamp(t.x,r.x0,r.x1),cy=clamp(t.y,r.y0,r.y1);
       let dx=t.x-cx,dy=t.y-cy;const d=Math.hypot(dx,dy);
       if(d<R){
+        hs=true;if(!t.onStub&&t.sp>40)sfx.clank();
         if(d<0.001){dx=t.x<(r.x0+r.x1)/2?-1:1;dy=0;}else{dx/=d;dy/=d;}
         t.x=cx+dx*R;t.y=cy+dy*R;
         const vn=t.kx*dx+t.ky*dy;if(vn<0){t.kx-=vn*1.3*dx;t.ky-=vn*1.3*dy;}
@@ -402,6 +448,7 @@ function step(dt){
         }
       }
     }
+    t.onStub=hs;
     if(Math.abs(t.x-CX)+R>=HX+RL||Math.abs(t.y-CY)+R>=HY+RL)kill(t); // touching the bottom of a ramp is out
   }
   // shells
@@ -410,13 +457,13 @@ function step(dt){
     s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt;
     if(((s.age=(s.age||0)+1)&1)===0)addP({x:s.x,y:s.y,vx:(Math.random()-0.5)*20,vy:(Math.random()-0.5)*20,life:0.22,max:0.22,c:'#ffd88a',sz:3}); // embers
     let dead=s.life<=0||insideShellBlocked(s.x,s.y);
-    if(dead&&s.life>0){spark(s.x,s.y,5,'#d8d8d8',110);puff(s.x,s.y,10,1.4,.4,.4,true,0,0);}
+    if(dead&&s.life>0){sfx.ping();spark(s.x,s.y,5,'#d8d8d8',110);puff(s.x,s.y,10,1.4,.4,.4,true,0,0);}
     if(!dead)for(const t of tanks){
       if(!t.alive||t===s.owner)continue;
       if(Math.hypot(t.x-s.x,t.y-s.y)<R+3){
         const m=Math.hypot(s.vx,s.vy);
         t.kx+=s.vx/m*SHELL_KNOCK;t.ky+=s.vy/m*SHELL_KNOCK;limitKv(t,KV_MAX);
-        t.stun=0.3;t.flash=0.12;shake=Math.max(shake,2.5);
+        t.by={o:s.owner,t:time};t.stun=0.3;t.flash=0.12;shake=Math.max(shake,2.5);
         spark(s.x,s.y,12,'#ffd27a',210);glow(s.x,s.y,46,.12);ring(s.x,s.y,4,34,'#ffd27a',0.3);ring(s.x,s.y,2,18,'#ffffff',0.2);puff(s.x,s.y,14,1.5,.5,.5,false,s.vx*.08,s.vy*.08);sfx.hit();dead=true;break;
       }
     }
@@ -441,15 +488,19 @@ function step(dt){
   // result
   if(state==='play'){
     const alive=tanks.filter(t=>t.alive).length;
-    if(!P.alive){state='over';clearInput();playerWon=false;overAt=time+0.9;sfx.lose();}
+    if(!P.alive){state='over';clearInput();endT=time;playerWon=false;overAt=time+0.9;sfx.lose();}
     else if(alive===1){
-      state='over';clearInput();playerWon=true;overAt=time+0.6;sfx.win();
+      state='over';clearInput();endT=time;playerWon=true;overAt=time+0.6;sfx.win();
       for(let i=0;i<46;i++){const a=Math.random()*6.283,sp=60+Math.random()*180;
         addP({x:P.x,y:P.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-60,life:0.9+Math.random()*0.6,max:1.5,c:PALETTE[i%PALETTE.length],sz:5});}
     }
   }
   if(state==='over'&&!$('#end').classList.contains('hidden')===false&&time>=overAt){
+    const e=$('#end'),m=Math.floor(endT/60),sec=String(Math.floor(endT%60)).padStart(2,'0');
+    e.classList.toggle('win',playerWon);e.classList.toggle('lose',!playerWon);
+    $('#endKick').textContent=playerWon?'Victory':'Eliminated';
     $('#endTitle').textContent=playerWon?'Pad is yours':'Down the ramp';
+    $('#endSub').textContent='Lasted '+m+':'+sec+' \u00b7 You shoved '+shoved+(shoved===1?' tank':' tanks')+' off';
     $('#end').classList.remove('hidden');overShownAt=performance.now();
   }
 }
@@ -715,16 +766,18 @@ function render(){
 }
 
 // ---------- HUD ----------
-let lastCount=-1,lastStatus='';
+let lastSig='',lastStatus='';
 function hud(){
-  const n=tanks.filter(t=>t.alive).length;
-  if(n!==lastCount){lastCount=n;$('#count').textContent='Tanks on pad: '+n;}
+  const sig=tanks.map(t=>t.color+(t.alive?1:0)).join();
+  if(sig!==lastSig){lastSig=sig;const n=tanks.filter(t=>t.alive).length,el=$('#pips');
+    el.innerHTML=tanks.map(t=>'<i class="pip'+(t.isPlayer?' me':'')+(t.alive?'':' dead')+'" style="background:'+t.color+'"></i>').join('');
+    el.setAttribute('aria-label','Tanks on pad: '+n);}
   const P=tanks[0];let s;
   if(state==='count')s='Get ready';
   else if(state==='over')s=playerWon?'Pad is yours':'Down the ramp';
-  else if(P.alive&&onRamp(P))s='Climb. The ramp has you.';
-  else if(widenMsg>0)s='Ramps widen';
-  else s='Shove them down the ramp';
+  else if(P.alive&&onRamp(P))s='Climb!';
+  else if(widenMsg>0)s='Ramps widen!';
+  else s='Push them off';
   if(s!==lastStatus){lastStatus=s;$('#status').textContent=s;}
 }
 
@@ -738,8 +791,10 @@ let lastCd='';
 function cdHud(){
   const el=$('#cd');
   if(cdT>0&&(state==='count'||state==='play')){
-    const txt=cdT>0.6?String(Math.ceil(cdT-0.6)):'GO!';
-    if(txt!==lastCd){lastCd=txt;el.textContent=txt;if(txt==='GO!')sfx.go();else sfx.beep();el.classList.remove('hidden','pop');void el.offsetWidth;el.classList.add('pop');}
+    const go=cdT<=0.6,txt=go?'GO!':String(Math.ceil(cdT-0.6));
+    if(txt!==lastCd){lastCd=txt;el.textContent=txt;
+      if(go){sfx.go();ring(CX,CY,10,230,'#f5c400',.5);glow(CX,CY,120,.25);spark(CX,CY,16,'#f5c400',220);shake=Math.max(shake,3);}else sfx.beep(+txt);
+      el.className='';void el.offsetWidth;el.className=go?'go':'n';}
   }else if(lastCd!==''){lastCd='';el.classList.add('hidden');}
 }
 function buildSwatches(box){
@@ -828,13 +883,13 @@ function frame(now){
   acc+=Math.min(0.1,(now-last)/1000);last=now;
   if(upright())acc=0;
   while(acc>=1/60){step(1/60);acc-=1/60;}
-  hud();cdHud();render();
+  hud();cdHud();humUpdate();render();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
 // test hook
-window.__off={step,reset,startGame:()=>startGame(true),startCount:()=>startGame(),input,get tanks(){return tanks;},get shells(){return shells;},get parts(){return parts;},get state(){return state;},get rh(){return rh;},CX,CY,HX,HY,RL,W,H,STUBS,over,mdist,mouths};
+window.__off={step,reset,startGame:()=>startGame(true),startCount:()=>startGame(),input,get tanks(){return tanks;},get shells(){return shells;},get playerWon(){return playerWon;},get parts(){return parts;},get state(){return state;},get rh(){return rh;},CX,CY,HX,HY,RL,W,H,STUBS,over,mdist,mouths};
 })();
 </script>
 </body>
