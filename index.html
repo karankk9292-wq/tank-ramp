@@ -100,9 +100,9 @@
 <script>
 (()=>{
 'use strict';
-// ---------- world: square pad, open ramp on all four sides ----------
-const W=530,H=530,C=265,HALF=165,RL=90,END=HALF+RL,R=14;
-const LV=[60,105,HALF]; // ramp half-widths: level 1 (4 tanks), level 2 (3 tanks), full (last two)
+// ---------- world: wide pad, open ramp on all four sides ----------
+const HX=210,HY=120,RL=80,R=14,W=2*(HX+RL),H=2*(HY+RL),CX=W/2,CY=H/2; // pad half-extents, ramp length
+const LV=[60,105,HX]; // ramp half-widths: level 1 (4 tanks), level 2 (3 tanks), full (last two); capped per side
 const STUB_L=20,STUB_T=8; // one-tank-wide stop wall at the middle of each lip
 const SPEED_P=135,SPEED_AI=100,KD=4,SLIDE=270;
 const SHELL_V=340,SHELL_KNOCK=340,BUMP_CAP=105,BUMP_ACC=700,KV_MAX=480;
@@ -110,26 +110,26 @@ const FIRE_CD_P=0.55;
 const $=s=>document.querySelector(s);
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const angDiff=(a,b)=>{let d=a-b;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return d;};
-const rad=t=>Math.max(Math.abs(t.x-C),Math.abs(t.y-C));            // distance toward the nearest edge
-const onRamp=t=>rad(t)>HALF;
+const over=t=>Math.max(Math.abs(t.x-CX)-HX,Math.abs(t.y-CY)-HY); // how far past the nearest pad edge (<0 inside)
+const onRamp=t=>over(t)>0;
+const laneX=()=>Math.min(rh,HY),laneY=()=>Math.min(rh,HX); // half-widths of the left/right and top/bottom ramps
 function mouths(){ // centre of the open lane either side of each stop wall
-  const lat=STUB_L+(rh-STUB_L)/2,out=[];
-  for(const [ux,uy] of [[1,0],[-1,0],[0,1],[0,-1]])for(const sg of [-1,1])out.push({x:C+ux*HALF-uy*lat*sg,y:C+uy*HALF+ux*lat*sg});
+  const lx=STUB_L+(laneX()-STUB_L)/2,ly=STUB_L+(laneY()-STUB_L)/2,out=[];
+  for(const s of [-1,1])for(const sg of [-1,1])out.push({x:CX+s*HX,y:CY+lx*sg},{x:CX+ly*sg,y:CY+s*HY});
   return out;
 }
 function nearestMouth(t){let b=null,bd=1e9;for(const m of mouths()){const d=Math.hypot(t.x-m.x,t.y-m.y);if(d<bd){bd=d;b=m;}}return [b,bd];}
-function mdist(t){return onRamp(t)?-(rad(t)-HALF):nearestMouth(t)[1];}   // small = close to falling off
+function mdist(t){return onRamp(t)?-over(t):nearestMouth(t)[1];}   // small = close to falling off
 function mouthDir(t){
   if(onRamp(t))return outDir(t);
   const [m]=nearestMouth(t),dx=m.x-t.x,dy=m.y-t.y,l=Math.hypot(dx,dy)||1;return [dx/l,dy/l];
 }
-function outDir(t){const dx=t.x-C,dy=t.y-C;return Math.abs(dx)>=Math.abs(dy)?[Math.sign(dx)||1,0]:[0,Math.sign(dy)||1];}
+function outDir(t){const dx=t.x-CX,dy=t.y-CY;return Math.abs(dx)-HX>=Math.abs(dy)-HY?[Math.sign(dx)||1,0]:[0,Math.sign(dy)||1];}
 // stop walls (axis-aligned rects)
 const STUBS=[];
 for(const [ux,uy] of [[1,0],[-1,0],[0,1],[0,-1]]){
-  const a0=HALF,a1=HALF+STUB_T;
-  if(ux!==0){const x0=C+(ux>0?a0:-a1),x1=C+(ux>0?a1:-a0);STUBS.push({x0,x1,y0:C-STUB_L,y1:C+STUB_L});}
-  else{const y0=C+(uy>0?a0:-a1),y1=C+(uy>0?a1:-a0);STUBS.push({x0:C-STUB_L,x1:C+STUB_L,y0,y1});}
+  if(ux!==0){const x0=CX+(ux>0?HX:-HX-STUB_T);STUBS.push({x0,x1:x0+STUB_T,y0:CY-STUB_L,y1:CY+STUB_L});}
+  else{const y0=CY+(uy>0?HY:-HY-STUB_T);STUBS.push({x0:CX-STUB_L,x1:CX+STUB_L,y0,y1:y0+STUB_T});}
 }
 
 // ---------- state ----------
@@ -178,17 +178,17 @@ const input={kx:0,ky:0,jx:0,jy:0,fire:false};
 const keys={};
 
 function mk(i,x,y,color,dark,isP){
-  return {id:i,x,y,face:Math.atan2(C-y,C-x),dx:0,dy:0,kx:0,ky:0,stun:0,cd:0.5+Math.random()*0.7,flash:0,
+  return {id:i,x,y,face:Math.atan2(CY-y,CX-x),dx:0,dy:0,kx:0,ky:0,stun:0,cd:0.5+Math.random()*0.7,flash:0,
     alive:true,fallT:0,fx:0,fy:1,color,dark,isPlayer:isP,lowT:0,tgt:null,rt:Math.random()*0.3,wob:Math.random()*6.28};
 }
 function reset(){
-  const J=()=>(Math.random()-0.5)*20,D=95;
+  const J=()=>(Math.random()-0.5)*20,D=70; // everyone starts D in from their own edge
   const ai=PALETTE.filter(c=>c!==playerColor);
   tanks=[
-    mk(0,C,C+D,playerColor,darker(playerColor),true),
-    mk(1,C-D+J(),C+J(),ai[0],darker(ai[0]),false),
-    mk(2,C+D+J(),C+J(),ai[1],darker(ai[1]),false),
-    mk(3,C+J(),C-D+J(),ai[2],darker(ai[2]),false)
+    mk(0,CX,CY+HY-D,playerColor,darker(playerColor),true),
+    mk(1,CX-HX+D+J(),CY+J(),ai[0],darker(ai[0]),false),
+    mk(2,CX+HX-D+J(),CY+J(),ai[1],darker(ai[1]),false),
+    mk(3,CX+J(),CY-HY+D+J()/2,ai[2],darker(ai[2]),false)
   ];
   shells=[];parts=[];time=0;shake=0;playerWon=false;rh=rhT=LV[0];widenMsg=0;flashT=0;rampFlash=0;
 }
@@ -207,19 +207,19 @@ function think(t,dt){
   if(onRamp(t)){
     // Actually on a ramp: panic and climb. Exception: a shallow overshoot while still
     // shoving someone who is further down the slope (easy to climb out of there).
-    const depth=(rad(t)-HALF)/RL;
+    const depth=over(t)/RL;
     if(!(g&&g.alive&&mdist(g)<mdist(t)-4&&depth<0.3)){
       const o=outDir(t);
-      if(o[0]!==0){t.dx=-o[0];t.dy=clamp((C-t.y)/70,-.4,.4);}
-      else{t.dy=-o[1];t.dx=clamp((C-t.x)/70,-.4,.4);}
+      if(o[0]!==0){t.dx=-o[0];t.dy=clamp((CY-t.y)/70,-.4,.4);}
+      else{t.dy=-o[1];t.dx=clamp((CX-t.x)/70,-.4,.4);}
       return;
     }
   }
   if(!g){t.dx=t.dy=0;return;}
   // frame: u = the target's outward (toward-its-ramp) direction, v = lateral
   const u=mouthDir(g),v=[-u[1],u[0]];
-  const ga=(g.x-C)*u[0]+(g.y-C)*u[1],gl=(g.x-C)*v[0]+(g.y-C)*v[1];
-  const ma=(t.x-C)*u[0]+(t.y-C)*u[1],ml=(t.x-C)*v[0]+(t.y-C)*v[1];
+  const ga=(g.x-CX)*u[0]+(g.y-CY)*u[1],gl=(g.x-CX)*v[0]+(g.y-CY)*v[1];
+  const ma=(t.x-CX)*u[0]+(t.y-CY)*u[1],ml=(t.x-CX)*v[0]+(t.y-CY)*v[1];
   const ex=gl-ml,ey=ga-ma;
   let ax,lat;
   if(ey>12){
@@ -236,16 +236,15 @@ function think(t,dt){
       else{
         if(!t.sd||time>t.sdT){t.sd=Math.random()<0.5?-1:1;t.sdT=time+0.7+Math.random()*0.8;}
         let sd=t.sd;
-        const px=t.x+v[0]*sd*30,py=t.y+v[1]*sd*30;
-        if(Math.max(Math.abs(px-C),Math.abs(py-C))>HALF-R-24)sd=-sd;
+        if(over({x:t.x+v[0]*sd*30,y:t.y+v[1]*sd*30})>-R-24)sd=-sd;
         lat=sd;ax=0;
       }
       t.dx=u[0]*ax+v[0]*lat;t.dy=u[1]*ax+v[1]*lat;
-      if(mdist(t)<70){const dx=C-t.x,dy=C-t.y,m=Math.hypot(dx,dy)||1;t.dx=dx/m*0.8;t.dy=dy/m*0.8;} // stay off the lip
+      if(mdist(t)<70){const dx=CX-t.x,dy=CY-t.y,m=Math.hypot(dx,dy)||1;t.dx=dx/m*0.8;t.dy=dy/m*0.8;} // stay off the lip
     }else{
       // flank: slip round to the inner side of the target, then shove outward
       const lane=ex>0?-1:1,a=ga-30,l=gl+lane*60;
-      const tx=clamp(C+u[0]*a+v[0]*l,C-HALF+R+10,C+HALF-R-10),ty=clamp(C+u[1]*a+v[1]*l,C-HALF+R+10,C+HALF-R-10);
+      const tx=clamp(CX+u[0]*a+v[0]*l,CX-HX+R+10,CX+HX-R-10),ty=clamp(CY+u[1]*a+v[1]*l,CY-HY+R+10,CY+HY-R-10);
       t.dx=clamp((tx-t.x)/16,-1,1);t.dy=clamp((ty-t.y)/16,-1,1);
     }
   }
@@ -286,9 +285,9 @@ function kill(t){
 }
 function limitKv(t,m){const k=Math.hypot(t.kx,t.ky);if(k>m){t.kx*=m/k;t.ky*=m/k;}}
 function insideShellBlocked(x,y){
-  const ax=Math.abs(x-C),ay=Math.abs(y-C);
-  if(ax>END+8||ay>END+8)return true;
-  if((ax>HALF&&ay>rh)||(ay>HALF&&ax>rh))return true; // edge walls / ramp side walls
+  const ax=Math.abs(x-CX),ay=Math.abs(y-CY);
+  if(ax>HX+RL+8||ay>HY+RL+8)return true;
+  if((ax>HX&&ay>laneX())||(ay>HY&&ax>laneY()))return true; // edge walls / ramp side walls
   for(const r of STUBS)if(x>r.x0&&x<r.x1&&y>r.y0&&y<r.y1)return true;
   return false;
 }
@@ -319,7 +318,7 @@ function step(dt){
     const sp=t.isPlayer?SPEED_P:SPEED_AI,k=t.stun>0?0.35:1;
     let vx=t.dx*sp*k+t.kx,vy=t.dy*sp*k+t.ky;
     if(onRamp(t)){ // downhill pull, outward along the ramp axis
-      const o=outDir(t),pull=SLIDE*Math.min(1,(rad(t)-HALF)/RL);
+      const o=outDir(t),pull=SLIDE*Math.min(1,over(t)/RL);
       vx+=o[0]*pull;vy+=o[1]*pull;
     }
     t.x+=vx*dt;t.y+=vy*dt;
@@ -362,19 +361,18 @@ function step(dt){
     }
   }
   // walls: corridor sides / pad corners, stop walls; out when the end of any ramp is touched
-  const M=HALF-R;
+  const Mx=HX-R,My=HY-R,Lx=laneX()-R,Ly=laneY()-R;
   for(const t of tanks){
     if(!t.alive)continue;
-    const Mc=rh-R;
-    let ax=t.x-C,ay=t.y-C;
-    if(Math.abs(ax)>M&&Math.abs(ay)>Mc){ // past the pad edge on x, but outside the ramp lane
-      if(Math.abs(ax)-M<Math.abs(ay)-Mc){t.x=C+Math.sign(ax)*M;if(t.kx*ax>0)t.kx*=-0.3;}
-      else{t.y=C+Math.sign(ay)*Mc;if(t.ky*ay>0)t.ky*=-0.3;}
+    let ax=t.x-CX,ay=t.y-CY;
+    if(Math.abs(ax)>Mx&&Math.abs(ay)>Lx){ // past the pad edge on x, but outside the left/right ramp lane
+      if(Math.abs(ax)-Mx<Math.abs(ay)-Lx){t.x=CX+Math.sign(ax)*Mx;if(t.kx*ax>0)t.kx*=-0.3;}
+      else{t.y=CY+Math.sign(ay)*Lx;if(t.ky*ay>0)t.ky*=-0.3;}
     }
-    ax=t.x-C;ay=t.y-C;
-    if(Math.abs(ay)>M&&Math.abs(ax)>Mc){
-      if(Math.abs(ay)-M<Math.abs(ax)-Mc){t.y=C+Math.sign(ay)*M;if(t.ky*ay>0)t.ky*=-0.3;}
-      else{t.x=C+Math.sign(ax)*Mc;if(t.kx*ax>0)t.kx*=-0.3;}
+    ax=t.x-CX;ay=t.y-CY;
+    if(Math.abs(ay)>My&&Math.abs(ax)>Ly){ // past the pad edge on y, but outside the top/bottom ramp lane
+      if(Math.abs(ay)-My<Math.abs(ax)-Ly){t.y=CY+Math.sign(ay)*My;if(t.ky*ay>0)t.ky*=-0.3;}
+      else{t.x=CX+Math.sign(ax)*Ly;if(t.kx*ax>0)t.kx*=-0.3;}
     }
     for(const r of STUBS){
       const cx=clamp(t.x,r.x0,r.x1),cy=clamp(t.y,r.y0,r.y1);
@@ -385,7 +383,7 @@ function step(dt){
         const vn=t.kx*dx+t.ky*dy;if(vn<0){t.kx-=vn*1.3*dx;t.ky-=vn*1.3*dy;}
       }
     }
-    if(Math.abs(t.x-C)+R>=END||Math.abs(t.y-C)+R>=END)kill(t); // touching the bottom of a ramp is out
+    if(Math.abs(t.x-CX)+R>=HX+RL||Math.abs(t.y-CY)+R>=HY+RL)kill(t); // touching the bottom of a ramp is out
   }
   // shells
   for(let i=shells.length-1;i>=0;i--){
@@ -441,26 +439,27 @@ const S=2,bg=document.createElement('canvas');bg.width=W*S;bg.height=H*S;
   let seed=7;const rnd=()=>((seed=(seed*16807)%2147483647)/2147483647);
   g.fillStyle='#050506';g.fillRect(0,0,W,H);
   // solid block (corner blocks + corridor side walls)
-  g.fillStyle='#1b1c20';g.fillRect(C-END,C-END,2*END,2*END);
+  g.fillStyle='#1b1c20';g.fillRect(0,0,W,H);
   // pad
-  g.fillStyle='#34363b';g.fillRect(C-HALF,C-HALF,2*HALF,2*HALF);
+  g.fillStyle='#34363b';g.fillRect(CX-HX,CY-HY,2*HX,2*HY);
   for(let i=0;i<2600;i++){
-    const x=C-HALF+rnd()*2*HALF,y=C-HALF+rnd()*2*HALF,s=0.5+rnd()*1.3;
+    const x=CX-HX+rnd()*2*HX,y=CY-HY+rnd()*2*HY,s=0.5+rnd()*1.3;
     g.fillStyle=rnd()<0.5?'rgba(255,255,255,'+(0.03+rnd()*0.05)+')':'rgba(0,0,0,'+(0.1+rnd()*0.12)+')';
     g.fillRect(x,y,s,s);
   }
   g.strokeStyle='rgba(0,0,0,.4)';g.lineWidth=1.5;
-  for(const k of [-HALF/3,HALF/3]){
-    g.beginPath();g.moveTo(C+k,C-HALF);g.lineTo(C+k,C+HALF);g.stroke();
-    g.beginPath();g.moveTo(C-HALF,C+k);g.lineTo(C+HALF,C+k);g.stroke();
+  for(const k of [-1,1]){
+    g.beginPath();g.moveTo(CX+k*HX/3,CY-HY);g.lineTo(CX+k*HX/3,CY+HY);g.stroke();
+    g.beginPath();g.moveTo(CX-HX,CY+k*HY/3);g.lineTo(CX+HX,CY+k*HY/3);g.stroke();
   }
-  g.strokeStyle='rgba(245,196,0,.10)';g.lineWidth=2;g.beginPath();g.arc(C,C,46,0,6.283);g.stroke();
+  g.strokeStyle='rgba(245,196,0,.10)';g.lineWidth=2;g.beginPath();g.arc(CX,CY,46,0,6.283);g.stroke();
   // pad edge wall (ramps are drawn over this each frame, they change width)
-  g.strokeStyle='#4a4d55';g.lineWidth=3;g.strokeRect(C-HALF-1.5,C-HALF-1.5,2*HALF+3,2*HALF+3);
+  g.strokeStyle='#4a4d55';g.lineWidth=3;g.strokeRect(CX-HX-1.5,CY-HY-1.5,2*HX+3,2*HY+3);
 })();
 function drawRamps(){
   for(let k=0;k<4;k++){
-    ctx.save();ctx.translate(C,C);ctx.rotate(k*Math.PI/2);
+    ctx.save();ctx.translate(CX,CY);ctx.rotate(k*Math.PI/2);
+    const HALF=k%2?HX:HY,END=HALF+RL,rh=k%2?laneX():laneY(); // this side: edge, ramp end, lane half-width
     ctx.save();ctx.beginPath();ctx.rect(-rh,HALF-3,2*rh,RL+3);ctx.clip();
     ctx.fillStyle='#f5c400';ctx.fillRect(-rh,HALF-3,2*rh,RL+3);
     ctx.fillStyle='#111';
@@ -662,7 +661,7 @@ function frame(now){
 requestAnimationFrame(frame);
 
 // test hook
-window.__off={step,reset,startGame:()=>startGame(true),startCount:()=>startGame(),input,get tanks(){return tanks;},get state(){return state;},get rh(){return rh;},C,HALF,END,RL,STUBS,rad,mdist};
+window.__off={step,reset,startGame:()=>startGame(true),startCount:()=>startGame(),input,get tanks(){return tanks;},get state(){return state;},get rh(){return rh;},CX,CY,HX,HY,RL,W,H,STUBS,over,mdist,mouths};
 })();
 </script>
 </body>
